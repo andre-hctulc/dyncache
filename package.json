@@ -2,7 +2,7 @@
     "name": "@andre-hctulc/dyncache",
     "version": "0.0.1",
     "description": "Dynamic Cache",
-    "main": "index.js",
+    "main": "dist/index.js",
     "scripts": {
         "build": "tsc",
         "tc": "tsc --noEmit",
