@@ -18,6 +18,10 @@ export interface DynCacheEngine {
 }
 
 export interface DynCacheConfig {
+    /**
+     * The cache engine to use.
+     * @default MemoryEngine
+     */
     engine?: DynCacheEngine;
     /**
      * Milliseconds to keep the cache. Set to 0 to disable.
@@ -26,6 +30,7 @@ export interface DynCacheConfig {
     cacheTime?: number;
     /**
      * Clear interval in milliseconds. Set to Infinity or 0 to disable.
+     * When disabled, the entries will be removed on retrieval if they are expired.
      * @default 60000
      */
     clearInterval?: number;
@@ -52,6 +57,9 @@ export type EntryFinder<K, V> =
 export type DynCacheEntry<K, V> = { key: K; value: V; tags: string[]; expiresAt: number };
 
 export type SetOptions = {
+    /**
+     * Tags to add to the entry.
+     */
     tags?: string[];
     /**
      * Milliseconds to keep the entry in the cache. Set to 0 to disable.

@@ -13,6 +13,7 @@ import hash from "stable-hash";
 export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheValue = DynCacheValue> {
     private _config: DynCacheConfig;
     private _engine: DynCacheEngine;
+    private _interval: any;
 
     constructor(config: DynCacheConfig = {}) {
         this._config = config;
@@ -23,7 +24,7 @@ export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheVal
     private startClearInterval() {
         if (this._config.clearInterval === 0 || this._config.clearInterval === Infinity) return;
 
-        setInterval(() => {
+        this._interval = setInterval(() => {
             const now = Date.now();
             this.all().forEach((entry) => this.checkExpired(now, entry));
         }, this._config.clearInterval || 60000);
@@ -117,5 +118,9 @@ export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheVal
     removeByFinder(finder: EntryFinder<K, V>): void {
         const entries = this.find(finder);
         entries.forEach((entry) => this.remove(entry.key));
+    }
+
+    deactivate(): void {
+        if (this._interval !== undefined) clearInterval(this._interval);
     }
 }

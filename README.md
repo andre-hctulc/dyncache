@@ -14,21 +14,36 @@ Dynamic Cache.
 const cache = new DynCache();
 
 // Set:
-//project.config can be any serializable object
+// The key can be any serializable object
 cache.set(project.config, project);
 
 // Retrieve:
-// If the item does not exist in the index or is expired undefined is returned.
+// If the item does not exist in the cache or is expired undefined is returned
 const project = cache.get(config);
 
 // Remove:
 cache.remove(config);
+
+// Deactivate:
+// Deactivates the clear interval.
+// The cache can still be used, but with "clearInterval: 0" behavior
+cache.deactivate();
 ```
 
-## Cache Behavior
+## Config
 
-By default all items are cached infinitely.
+`engine`
+
+The cache engine to use. Defaults to a memory engine.
+
+`cacheTime`
+
+By default entries are cached infinitely.
 Disable the cache by settings the cache time to 0 or Infinity.
 A cache can set the cache time for its items. It can be overwritten for single items on set.
 
-The items are checked for expiration in an interval of 60 seconds. The length can be customized.
+`clearInterval`
+
+Defaults to 60 seconds.
+The entries are checked for expiration in an interval. 
+Disable the clear interval by setting this to 0 or Infinity. Then the entries will be checked and removed on retrieval.
