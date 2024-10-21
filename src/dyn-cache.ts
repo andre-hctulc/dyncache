@@ -14,7 +14,7 @@ export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheVal
     private _config: DynCacheConfig;
     private _engine: DynCacheEngine;
 
-    constructor(config: DynCacheConfig) {
+    constructor(config: DynCacheConfig = {}) {
         this._config = config;
         this._engine = config.engine || new MemoryEngine();
         this.startClearInterval();
@@ -62,8 +62,14 @@ export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheVal
     }
 
     get(key: K): V | undefined {
+        return this.getEntry(key)?.value;
+    }
+
+    getEntry(key: K): DynCacheEntry<K, V> | undefined {
         const k = hash(key);
-        return this._engine.getValue(k);
+        const entry: DynCacheEntry<K, V> | undefined = this._engine.getValue(k);
+        if (!entry || this.checkExpired(Date.now(), entry)) return undefined;
+        return entry;
     }
 
     clear(): void {
