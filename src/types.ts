@@ -29,11 +29,15 @@ export interface DynCacheConfig {
      */
     cacheTime?: number;
     /**
-     * Clear interval in milliseconds. Set to Infinity or 0 to disable.
+     * Clear interval in milliseconds. Defaults to 5 minutes. 
+     * 
+     * Set to Infinity or 0 to disable.
      * When disabled, the entries will be removed on retrieval if they are expired.
-     * @default 60000
+     * @default 300000
      */
     clearInterval?: number;
+    onRemove?: (entry: DynCacheEntry<any, any>) => void;
+    onSet?: (entry: DynCacheEntry<any, any>) => void;
 }
 
 export type DynCacheKey = any;

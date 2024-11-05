@@ -13,7 +13,7 @@ import hash from "stable-hash";
 export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheValue = DynCacheValue> {
     private _config: DynCacheConfig;
     private _engine: DynCacheEngine;
-    private _interval: any;
+    private _clearInterval: any;
 
     constructor(config: DynCacheConfig = {}) {
         this._config = config;
@@ -24,32 +24,38 @@ export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheVal
     private startClearInterval() {
         if (this._config.clearInterval === 0 || this._config.clearInterval === Infinity) return;
 
-        this._interval = setInterval(() => {
+        this._clearInterval = setInterval(() => {
             const now = Date.now();
             this.all().forEach((entry) => this.checkExpired(now, entry));
-        }, this._config.clearInterval || 60000);
+        }, this._config.clearInterval || 300000);
     }
 
     private checkExpired(now: number, entry: DynCacheEntry<K, V>): boolean {
-        if (entry.expiresAt && entry.expiresAt < now) {
+        if (entry.expiresAt !== Infinity && entry.expiresAt < now) {
             this.remove(entry.key);
             return true;
         }
         return false;
     }
 
+    /**
+     * @returns All entries in the cache
+     */
     all(): DynCacheEntry<K, V>[] {
         const keys = this._engine.allKeys();
         const now = Date.now();
         return keys
             .map((key) => {
                 const entry: DynCacheEntry<K, V> = this._engine.getValue(key);
-                if (this.checkExpired(now, entry)) return;
+                if (!entry || this.checkExpired(now, entry)) return false;
                 return entry;
             })
             .filter((e) => !!e);
     }
 
+    /**
+     * Sets a value in the cache
+     */
     set(key: K, value: V, options?: SetOptions): void {
         const k = hash(key);
         const cacheTime = options?.cacheTime || this._config.cacheTime || Infinity;
@@ -59,13 +65,21 @@ export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheVal
             tags: options?.tags || [],
             expiresAt: cacheTime === 0 || cacheTime === Infinity ? Infinity : Date.now() + cacheTime,
         };
+        if (this._config.onSet) this._config.onSet(entry);
         this._engine.setValue(k, entry);
     }
 
+    /**
+     * Gets an entries value
+     * @returns The value or undefined if not found or expired
+     */
     get(key: K): V | undefined {
         return this.getEntry(key)?.value;
     }
 
+    /**
+     * @returns The entry or undefined if not found or expired
+     */
     getEntry(key: K): DynCacheEntry<K, V> | undefined {
         const k = hash(key);
         const entry: DynCacheEntry<K, V> | undefined = this._engine.getValue(k);
@@ -73,20 +87,37 @@ export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheVal
         return entry;
     }
 
+    /**
+     * Clears the cache
+     */
     clear(): void {
         const keys = this._engine.allKeys();
         keys.forEach((key) => this._engine.remove(key));
     }
 
+    /**
+     * Removes an entry from the cache
+     */
     remove(key: K): void {
         const k = hash(key);
+        if (this._config.onRemove) {
+            const entry: DynCacheEntry<K, V> | undefined = this._engine.getValue(k);
+            if (entry) this._config.onRemove(entry);
+        }
+        this._engine.remove(k);
     }
 
+    /**
+     * @returns If the key is in the cache
+     */
     has(key: K): boolean {
         const k = hash(key);
         return !!this._engine.getValue(k);
     }
 
+    /**
+     * Finds entries by a finder function or object
+     */
     find(finder: EntryFinder<K, V>): DynCacheEntry<K, V>[] {
         let someTags: Set<string> | undefined;
         let everyTags: Set<string> | undefined;
@@ -115,12 +146,18 @@ export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheVal
         });
     }
 
+    /**
+     * Removes entries by a finder function or object
+     */
     removeByFinder(finder: EntryFinder<K, V>): void {
         const entries = this.find(finder);
         entries.forEach((entry) => this.remove(entry.key));
     }
 
+    /**
+     * Deactivates the clearing interval. The cache can still be used with `clearInterval: 0` behavior.
+     */
     deactivate(): void {
-        if (this._interval !== undefined) clearInterval(this._interval);
+        if (this._clearInterval !== undefined) clearInterval(this._clearInterval);
     }
 }

@@ -7,10 +7,12 @@ Dynamic Cache.
 -   Complex keys
 -   Find/Remove entries by tags, keys or custom finders
 -   Support for custom engines
+-   _onSet_ and _onRemove_ listeners
 
 ## Basic Usage
 
 ```ts
+// Init:
 const cache = new DynCache();
 
 // Set:
@@ -34,16 +36,16 @@ cache.deactivate();
 
 `engine`
 
-The cache engine to use. Defaults to a memory engine.
+The cache engine to use. Defaults to a **memory engine**.
 
 `cacheTime`
 
-By default entries are cached infinitely.
+By default entries are **cached infinitely**.
 Disable the cache by settings the cache time to 0 or Infinity.
 A cache can set the cache time for its items. It can be overwritten for single items on set.
 
 `clearInterval`
 
-Defaults to 60 seconds.
-The entries are checked for expiration in an interval. 
+Defaults to **5 minutes**.
+The entries are checked for expiration in an interval.
 Disable the clear interval by setting this to 0 or Infinity. Then the entries will be checked and removed on retrieval.
