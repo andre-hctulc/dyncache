@@ -7,6 +7,7 @@ import type {
     DynCacheEntry,
     SetOptions,
     EntryFinder,
+    GetOptions,
 } from "./types";
 import hash from "stable-hash";
 
@@ -58,12 +59,14 @@ export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheVal
      */
     set(key: K, value: V, options?: SetOptions): void {
         const k = hash(key);
-        const cacheTime = options?.cacheTime || this._config.cacheTime || Infinity;
+        const cacheTime = options?.cacheTime ?? this._config.cacheTime ?? Infinity;
         const entry: DynCacheEntry<K, V> = {
             key,
             value,
             tags: options?.tags || [],
             expiresAt: cacheTime === 0 || cacheTime === Infinity ? Infinity : Date.now() + cacheTime,
+            cacheTime,
+            refresh: !!options?.refresh,
         };
         if (this._config.onSet) this._config.onSet(entry);
         this._engine.setValue(k, entry);
@@ -73,17 +76,29 @@ export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheVal
      * Gets an entries value
      * @returns The value or undefined if not found or expired
      */
-    get(key: K): V | undefined {
-        return this.getEntry(key)?.value;
+    get(key: K, options?: GetOptions): V | undefined {
+        return this.getEntry(key, options)?.value;
     }
 
     /**
      * @returns The entry or undefined if not found or expired
      */
-    getEntry(key: K): DynCacheEntry<K, V> | undefined {
+    getEntry(key: K, options?: GetOptions): DynCacheEntry<K, V> | undefined {
         const k = hash(key);
         const entry: DynCacheEntry<K, V> | undefined = this._engine.getValue(k);
-        if (!entry || this.checkExpired(Date.now(), entry)) return undefined;
+        const now = Date.now();
+
+        // expired?
+        if (!entry || this.checkExpired(now, entry)) return undefined;
+
+        // refresh?
+        if (
+            entry.expiresAt !== Infinity &&
+            ((entry.refresh && options?.refresh !== false) || options?.refresh)
+        ) {
+            entry.expiresAt = now + entry.cacheTime;
+        }
+
         return entry;
     }
 

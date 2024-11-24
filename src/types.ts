@@ -29,14 +29,20 @@ export interface DynCacheConfig {
      */
     cacheTime?: number;
     /**
-     * Clear interval in milliseconds. Defaults to 5 minutes. 
-     * 
+     * Clear interval in milliseconds. Defaults to 5 minutes.
+     *
      * Set to Infinity or 0 to disable.
      * When disabled, the entries will be removed on retrieval if they are expired.
      * @default 300000
      */
     clearInterval?: number;
+    /**
+     * Callback when an entry is removed.
+     */
     onRemove?: (entry: DynCacheEntry<any, any>) => void;
+    /**
+     * Callback when an entry is set.
+     */
     onSet?: (entry: DynCacheEntry<any, any>) => void;
 }
 
@@ -58,7 +64,32 @@ export type EntryFinder<K, V> =
           everyTag?: string[];
       };
 
-export type DynCacheEntry<K, V> = { key: K; value: V; tags: string[]; expiresAt: number };
+export type DynCacheEntry<K, V> = {
+    /**
+     * The key of the entry.
+     */
+    key: K;
+    /**
+     * The value of the entry.
+     */
+    value: V;
+    /**
+     * Tags associated with the entry.
+     */
+    tags: string[];
+    /**
+     * Timestamp when the entry expires.
+     */
+    expiresAt: number;
+    /**
+     * Milliseconds to keep the entry in the cache.
+     */
+    cacheTime: number;
+    /**
+     * Global refresh flag.
+     */
+    refresh: boolean;
+};
 
 export type SetOptions = {
     /**
@@ -68,7 +99,20 @@ export type SetOptions = {
     /**
      * Milliseconds to keep the entry in the cache. Set to 0 to disable.
      *
-     * This overwrites the configs cache time.
+     * This option takes precedence over `DynCacheConfig.cacheTime`.
      */
     cacheTime?: number;
+    /**
+     * If true, the entry cache time will be refreshed on the next get.
+     */
+    refresh?: boolean;
+};
+
+export type GetOptions = {
+    /**
+     * If true, the entry cache time will be refreshed.
+     *
+     * This option takes precedence over `SetOptions.refresh`.
+     */
+    refresh?: boolean;
 };
