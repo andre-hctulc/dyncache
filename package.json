@@ -3,6 +3,7 @@
     "version": "0.0.2",
     "description": "Dynamic Cache",
     "main": "dist/index.js",
+    "type": "module",
     "scripts": {
         "build": "tsc",
         "tc": "tsc --noEmit",

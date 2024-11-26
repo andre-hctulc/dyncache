@@ -1,4 +1,4 @@
-import { MemoryEngine } from "./memory-engine";
+import { MemoryEngine } from "./memory-engine.js";
 import type {
     DynCacheKey,
     DynCacheValue,
@@ -8,8 +8,10 @@ import type {
     SetOptions,
     EntryFinder,
     GetOptions,
-} from "./types";
-import hash from "stable-hash";
+} from "./types.js";
+import hashMod from "stable-hash";
+
+const hash = hashMod.default;
 
 export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheValue = DynCacheValue> {
     private _config: DynCacheConfig;

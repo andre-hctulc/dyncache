@@ -1,4 +1,4 @@
-import { DynCacheEngine } from "./types";
+import { DynCacheEngine } from "./types.js";
 
 export class MemoryEngine implements DynCacheEngine {
     private _cache: Record<string, any> = {};
