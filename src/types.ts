@@ -46,9 +46,6 @@ export interface DynCacheConfig {
     onSet?: (entry: DynCacheEntry<any, any>) => void;
 }
 
-export type DynCacheKey = any;
-export type DynCacheValue = any;
-
 export type EntryFinder<K, V> =
     | ((key: DynCacheEntry<K, V>) => boolean)
     | {

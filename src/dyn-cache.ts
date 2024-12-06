@@ -1,7 +1,5 @@
 import { MemoryEngine } from "./memory-engine.js";
 import type {
-    DynCacheKey,
-    DynCacheValue,
     DynCacheEngine,
     DynCacheConfig,
     DynCacheEntry,
@@ -13,7 +11,11 @@ import hashMod from "stable-hash";
 
 const hash = hashMod.default;
 
-export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheValue = DynCacheValue> {
+/**
+ * @template BK The base key type
+ * @template BV The base value type
+ */
+export class DynCache<BK = any, BV = any> {
     private _config: DynCacheConfig;
     private _engine: DynCacheEngine;
     private _clearInterval: any;
@@ -33,7 +35,7 @@ export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheVal
         }, this._config.clearInterval || 300000);
     }
 
-    private checkExpired(now: number, entry: DynCacheEntry<K, V>): boolean {
+    private checkExpired(now: number, entry: DynCacheEntry<any, any>): boolean {
         if (entry.expiresAt !== Infinity && entry.expiresAt < now) {
             this.remove(entry.key);
             return true;
@@ -44,12 +46,12 @@ export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheVal
     /**
      * @returns All entries in the cache
      */
-    all(): DynCacheEntry<K, V>[] {
+    all(): DynCacheEntry<BK, BV>[] {
         const keys = this._engine.allKeys();
         const now = Date.now();
         return keys
             .map((key) => {
-                const entry: DynCacheEntry<K, V> = this._engine.getValue(key);
+                const entry: DynCacheEntry<any, any> = this._engine.getValue(key);
                 if (!entry || this.checkExpired(now, entry)) return false;
                 return entry;
             })
@@ -59,7 +61,7 @@ export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheVal
     /**
      * Sets a value in the cache
      */
-    set(key: K, value: V, options?: SetOptions): void {
+    set<K extends BK, V extends BV>(key: K, value: V, options?: SetOptions): void {
         const k = hash(key);
         const cacheTime = options?.cacheTime ?? this._config.cacheTime ?? Infinity;
         const entry: DynCacheEntry<K, V> = {
@@ -78,14 +80,26 @@ export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheVal
      * Gets an entries value
      * @returns The value or undefined if not found or expired
      */
-    get(key: K, options?: GetOptions): V | undefined {
-        return this.getEntry(key, options)?.value;
+    get<V extends BV = BV, K extends BK = BK>(key: K, options?: GetOptions): V | undefined {
+        return this.getEntry<K, V>(key, options)?.value;
+    }
+
+    getOrSet<K extends BK, V extends BV>(key: K, value: () => V, options?: SetOptions): V {
+        const entry = this.getEntry<K, V>(key, options);
+
+        if (entry) {
+            return entry.value;
+        }
+
+        const val = value();
+        this.set(key, val, options);
+        return val;
     }
 
     /**
      * @returns The entry or undefined if not found or expired
      */
-    getEntry(key: K, options?: GetOptions): DynCacheEntry<K, V> | undefined {
+    getEntry<K extends BK, V extends BV>(key: K, options?: GetOptions): DynCacheEntry<K, V> | undefined {
         const k = hash(key);
         const entry: DynCacheEntry<K, V> | undefined = this._engine.getValue(k);
         const now = Date.now();
@@ -115,10 +129,10 @@ export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheVal
     /**
      * Removes an entry from the cache
      */
-    remove(key: K): void {
+    remove<K extends BK = BK>(key: K): void {
         const k = hash(key);
         if (this._config.onRemove) {
-            const entry: DynCacheEntry<K, V> | undefined = this._engine.getValue(k);
+            const entry: DynCacheEntry<K, any> | undefined = this._engine.getValue(k);
             if (entry) this._config.onRemove(entry);
         }
         this._engine.remove(k);
@@ -127,7 +141,7 @@ export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheVal
     /**
      * @returns If the key is in the cache
      */
-    has(key: K): boolean {
+    has<K = any>(key: K): boolean {
         const k = hash(key);
         return !!this._engine.getValue(k);
     }
@@ -135,7 +149,7 @@ export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheVal
     /**
      * Finds entries by a finder function or object
      */
-    find(finder: EntryFinder<K, V>): DynCacheEntry<K, V>[] {
+    find(finder: EntryFinder<BK, BV>): DynCacheEntry<BK, BV>[] {
         let someTags: Set<string> | undefined;
         let everyTags: Set<string> | undefined;
         let keysToFind: Set<string> | undefined;
@@ -166,7 +180,7 @@ export class DynCache<K extends DynCacheKey = DynCacheKey, V extends DynCacheVal
     /**
      * Removes entries by a finder function or object
      */
-    removeByFinder(finder: EntryFinder<K, V>): void {
+    removeByFinder(finder: EntryFinder<BK, BV>): void {
         const entries = this.find(finder);
         entries.forEach((entry) => this.remove(entry.key));
     }
