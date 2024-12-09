@@ -96,7 +96,7 @@ export type SetOptions = {
     /**
      * Milliseconds to keep the entry in the cache. Set to 0 to disable.
      *
-     * This option takes precedence over `DynCacheConfig.cacheTime`.
+     * This option takes precedence over {@link DynCacheConfig.cacheTime}.
      */
     cacheTime?: number;
     /**
@@ -109,7 +109,7 @@ export type GetOptions = {
     /**
      * If true, the entry cache time will be refreshed.
      *
-     * This option takes precedence over `SetOptions.refresh`.
+     * This option takes precedence over {@link SetOptions.refresh}.
      */
     refresh?: boolean;
 };

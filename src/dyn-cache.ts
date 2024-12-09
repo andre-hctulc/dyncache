@@ -61,7 +61,7 @@ export class DynCache<BK = any, BV = any> {
     /**
      * Sets a value in the cache
      */
-    set<K extends BK, V extends BV>(key: K, value: V, options?: SetOptions): void {
+    set<K extends BK, V extends BV>(key: K, value: V, options?: SetOptions): DynCacheEntry<K, V> {
         const k = hash(key);
         const cacheTime = options?.cacheTime ?? this._config.cacheTime ?? Infinity;
         const entry: DynCacheEntry<K, V> = {
@@ -74,6 +74,8 @@ export class DynCache<BK = any, BV = any> {
         };
         if (this._config.onSet) this._config.onSet(entry);
         this._engine.setValue(k, entry);
+
+        return entry;
     }
 
     /**
@@ -84,6 +86,10 @@ export class DynCache<BK = any, BV = any> {
         return this.getEntry<K, V>(key, options)?.value;
     }
 
+    /**
+     * Gets an entries value or sets it if not found
+     * @returns The value
+     */
     getOrSet<K extends BK, V extends BV>(key: K, value: () => V, options?: SetOptions): V {
         const entry = this.getEntry<K, V>(key, options);
 
@@ -186,9 +192,17 @@ export class DynCache<BK = any, BV = any> {
     }
 
     /**
-     * Deactivates the clearing interval. The cache can still be used with `clearInterval: 0` behavior.
+     * Deactivates the clearing interval. The cache can still be used, but with `clearInterval: 0` behavior.
      */
     deactivate(): void {
         if (this._clearInterval !== undefined) clearInterval(this._clearInterval);
+    }
+
+    /**
+     * A helper function to create a key
+     * @returns The key
+     */
+    createKey<K extends BK>(key: K): K {
+        return key;
     }
 }
