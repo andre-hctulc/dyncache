@@ -7,9 +7,7 @@ import type {
     EntryFinder,
     GetOptions,
 } from "./types.js";
-import hashMod from "stable-hash";
-
-const hash = hashMod.default;
+import hash from "stable-hash";
 
 /**
  * @template BK The base key type
