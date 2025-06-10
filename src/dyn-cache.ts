@@ -249,7 +249,9 @@ export class DynCache<BK = any, BV = any> {
      * Deactivates the clearing interval. The cache can still be used, but with `clearInterval: 0` behavior.
      */
     deactivate(): void {
-        if (this.#clearInterval !== undefined) clearInterval(this.#clearInterval);
+        if (this.#clearInterval) {
+            clearInterval(this.#clearInterval);
+        }
     }
 
     /**

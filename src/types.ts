@@ -39,6 +39,9 @@ export interface DynCacheConfig {
      * @default MemoryEngine
      */
     engine?: DynCacheEngine;
+    /**
+     * Base cache options. Can be overridden per entry.
+     */
     baseCacheOptions?: CacheOptions;
     /**
      * Clear interval in milliseconds. Defaults to 5 minutes.

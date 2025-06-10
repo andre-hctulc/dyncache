@@ -4,7 +4,7 @@ Dynamic Cache.
 
 ## Features
 
--   Complex keys (strings, numbers, objects, arrays, ...)
+-   Simple or complex keys (strings, numbers, objects, arrays, ...)
 -   Find/Remove entries by tags, keys or custom finders
 -   Support for custom engines
 -   _onSet_ and _onRemove_ listeners
@@ -14,23 +14,15 @@ Dynamic Cache.
 ## Basic Usage
 
 ```ts
-// Init:
 const cache = new DynCache();
 
-// Set:
-// The key can be any serializable object
 cache.set(project.config, project);
 
-// Retrieve:
-// If the item does not exist in the cache or is expired undefined is returned
 const project = cache.get(config);
 
-// Remove:
 cache.remove(config);
 
-// Deactivate:
-// Deactivates the clear interval.
-// The cache can still be used, but with "clearInterval: 0" behavior
+// Deactivate the cache. Required when clear interval is used (default).
 cache.deactivate();
 ```
 
@@ -50,6 +42,10 @@ Disable the clear interval by setting this to 0 or Infinity. Then the entries wi
 
 Max size in bytes.
 
+`onSet`,`onRemove`
+
+Set/remove listener.
+
 ## Cache Options
 
 `ttl`
@@ -57,3 +53,11 @@ Max size in bytes.
 Time to live in milliseconds.
 By default entries are **cached infinitely**.
 Disable the cache by settings the cache time to 0 or Infinity.
+
+`refresh`
+
+Refresh ttl on retrieval?
+
+`tags`
+
+Tags can be assigned to cache entries to improve entry filtering.
