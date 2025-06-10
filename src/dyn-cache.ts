@@ -6,34 +6,44 @@ import type {
     SetOptions,
     EntryFinder,
     GetOptions,
+    CacheOptions,
 } from "./types.js";
 import hash from "stable-hash";
+import sizeOf from "object-sizeof";
 
 /**
  * @template BK The base key type
  * @template BV The base value type
  */
 export class DynCache<BK = any, BV = any> {
-    private _config: DynCacheConfig;
-    private _engine: DynCacheEngine;
-    private _clearInterval: any;
+    #config: DynCacheConfig;
+    #engine: DynCacheEngine;
+    #clearInterval: any;
+    #size: number = 0;
+    #maxSize: number;
+    #baseCacheOptions: CacheOptions;
 
     constructor(config: DynCacheConfig = {}) {
-        this._config = config;
-        this._engine = config.engine || new MemoryEngine();
-        this.startClearInterval();
+        this.#config = config;
+        this.#engine = config.engine || new MemoryEngine();
+        this.#startClearInterval();
+        this.#maxSize = config.maxSize || Infinity;
+        if (this.#maxSize < 0) {
+            throw new Error("Max memory size must be a positive number or Infinity");
+        }
+        this.#baseCacheOptions = config.baseCacheOptions || {};
     }
 
-    private startClearInterval() {
-        if (this._config.clearInterval === 0 || this._config.clearInterval === Infinity) return;
+    #startClearInterval() {
+        if (this.#config.clearInterval === 0 || this.#config.clearInterval === Infinity) return;
 
-        this._clearInterval = setInterval(() => {
+        this.#clearInterval = setInterval(() => {
             const now = Date.now();
-            this.all().forEach((entry) => this.checkExpired(now, entry));
-        }, this._config.clearInterval || 300000);
+            this.all().forEach((entry) => this.#checkExpired(now, entry));
+        }, this.#config.clearInterval || 300000);
     }
 
-    private checkExpired(now: number, entry: DynCacheEntry<any, any>): boolean {
+    #checkExpired(now: number, entry: DynCacheEntry<any, any>): boolean {
         if (entry.expiresAt !== Infinity && entry.expiresAt < now) {
             this.remove(entry.key);
             return true;
@@ -45,12 +55,12 @@ export class DynCache<BK = any, BV = any> {
      * @returns All entries in the cache
      */
     all(): DynCacheEntry<BK, BV>[] {
-        const keys = this._engine.allKeys();
+        const keys = this.#engine.allKeys();
         const now = Date.now();
         return keys
             .map((key) => {
-                const entry: DynCacheEntry<any, any> = this._engine.getValue(key);
-                if (!entry || this.checkExpired(now, entry)) return false;
+                const entry: DynCacheEntry<any, any> = this.#engine.getValue(key);
+                if (!entry || this.#checkExpired(now, entry)) return false;
                 return entry;
             })
             .filter((e) => !!e);
@@ -58,22 +68,56 @@ export class DynCache<BK = any, BV = any> {
 
     /**
      * Sets a value in the cache
+     * @throws Error if the entry size exceeds the max cache size
      */
     set<K extends BK, V extends BV>(key: K, value: V, options?: SetOptions): DynCacheEntry<K, V> {
         const k = hash(key);
-        const cacheTime = options?.cacheTime ?? this._config.cacheTime ?? Infinity;
+        const cacheTime = options?.ttl ?? this.#baseCacheOptions.ttl ?? Infinity;
+
         const entry: DynCacheEntry<K, V> = {
             key,
             value,
-            tags: options?.tags || [],
+            tags: options?.tags || this.#baseCacheOptions.tags || [],
             expiresAt: cacheTime === 0 || cacheTime === Infinity ? Infinity : Date.now() + cacheTime,
-            cacheTime,
-            refresh: !!options?.refresh,
+            ttl: cacheTime,
+            refresh: options?.refresh ?? !!this.#baseCacheOptions.refresh,
+            size: 0,
         };
-        if (this._config.onSet) this._config.onSet(entry);
-        this._engine.setValue(k, entry);
+
+        const _size = sizeOf(entry);
+        entry.size = _size + sizeOf(_size);
+
+        if (entry.size > this.#maxSize) {
+            throw new Error(`Entry size (${_size} bytes) exceeds max cache size (${this.#maxSize} bytes)`);
+        }
+
+        if (this.#size + entry.size > this.#maxSize) {
+            this.#trim();
+        }
+
+        this.#engine.setValue(k, entry);
+        this.#size += entry.size;
+
+        this.#config.onSet?.(entry);
 
         return entry;
+    }
+
+    #trim() {
+        if (this.#maxSize === Infinity) {
+            return;
+        }
+
+        const allEntries = this.all();
+
+        allEntries.sort((a, b) => a.expiresAt - b.expiresAt);
+
+        while (this.#size > this.#maxSize && allEntries.length > 0) {
+            const oldestEntry = allEntries.shift();
+            if (oldestEntry) {
+                this.remove(oldestEntry.key);
+            }
+        }
     }
 
     /**
@@ -85,18 +129,23 @@ export class DynCache<BK = any, BV = any> {
     }
 
     /**
-     * Gets an entries value or sets it if not found
+     * Gets an entry's value or sets it if not found
      * @returns The value
      */
-    getOrSet<K extends BK, V extends BV>(key: K, value: () => V, options?: SetOptions): V {
-        const entry = this.getEntry<K, V>(key, options);
+    getOrSet<K extends BK, V extends BV>(
+        key: K,
+        value: () => V,
+        getOptions?: GetOptions,
+        setOptions?: SetOptions
+    ): V {
+        const entry = this.getEntry<K, V>(key, getOptions);
 
         if (entry) {
             return entry.value;
         }
 
         const val = value();
-        this.set(key, val, options);
+        this.set(key, val, setOptions);
         return val;
     }
 
@@ -105,18 +154,20 @@ export class DynCache<BK = any, BV = any> {
      */
     getEntry<K extends BK, V extends BV>(key: K, options?: GetOptions): DynCacheEntry<K, V> | undefined {
         const k = hash(key);
-        const entry: DynCacheEntry<K, V> | undefined = this._engine.getValue(k);
+        const entry: DynCacheEntry<K, V> | undefined = this.#engine.getValue(k);
         const now = Date.now();
 
         // expired?
-        if (!entry || this.checkExpired(now, entry)) return undefined;
+        if (!entry || this.#checkExpired(now, entry)) {
+            return undefined;
+        }
 
         // refresh?
         if (
             entry.expiresAt !== Infinity &&
-            ((entry.refresh && options?.refresh !== false) || options?.refresh)
+            (options?.refresh ?? entry?.refresh ?? this.#baseCacheOptions.refresh)
         ) {
-            entry.expiresAt = now + entry.cacheTime;
+            entry.expiresAt = now + entry.ttl;
         }
 
         return entry;
@@ -124,30 +175,35 @@ export class DynCache<BK = any, BV = any> {
 
     /**
      * Clears the cache
+     * @param silent If true, does not call the onRemove callback
      */
     clear(): void {
-        const keys = this._engine.allKeys();
-        keys.forEach((key) => this._engine.remove(key));
+        this.#engine.allKeys().forEach((key) => this.#engine.remove(key));
+        this.#size = 0;
     }
 
     /**
      * Removes an entry from the cache
      */
-    remove<K extends BK = BK>(key: K): void {
+    remove<K extends BK = BK, V extends BV = BV>(key: K): DynCacheEntry<K, V> | undefined {
         const k = hash(key);
-        if (this._config.onRemove) {
-            const entry: DynCacheEntry<K, any> | undefined = this._engine.getValue(k);
-            if (entry) this._config.onRemove(entry);
-        }
-        this._engine.remove(k);
+        const entry = this.#engine.getValue(k);
+
+        if (!entry) return undefined;
+
+        this.#engine.remove(k);
+        this.#size -= entry.size;
+
+        this.#config.onRemove?.(entry);
+
+        return entry;
     }
 
     /**
      * @returns If the key is in the cache
      */
     has<K = any>(key: K): boolean {
-        const k = hash(key);
-        return !!this._engine.getValue(k);
+        return !!this.#engine.getValue(hash(key));
     }
 
     /**
@@ -193,7 +249,7 @@ export class DynCache<BK = any, BV = any> {
      * Deactivates the clearing interval. The cache can still be used, but with `clearInterval: 0` behavior.
      */
     deactivate(): void {
-        if (this._clearInterval !== undefined) clearInterval(this._clearInterval);
+        if (this.#clearInterval !== undefined) clearInterval(this.#clearInterval);
     }
 
     /**
@@ -202,5 +258,9 @@ export class DynCache<BK = any, BV = any> {
      */
     createKey<K extends BK>(key: K): K {
         return key;
+    }
+
+    getSize(): number {
+        return this.#size;
     }
 }

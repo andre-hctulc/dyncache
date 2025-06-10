@@ -17,17 +17,29 @@ export interface DynCacheEngine {
     remove(key: string): void;
 }
 
+export interface CacheOptions {
+    /**
+     * Milliseconds to keep item in cache. Set to 0 to disable.
+     * @default 0
+     */
+    ttl?: number;
+    /**
+     * Refresh ttl on retrieval.
+     */
+    refresh?: boolean;
+    /**
+     * Tags to add to the entry.
+     */
+    tags?: string[];
+}
+
 export interface DynCacheConfig {
     /**
      * The cache engine to use.
      * @default MemoryEngine
      */
     engine?: DynCacheEngine;
-    /**
-     * Milliseconds to keep the cache. Set to 0 to disable.
-     * @default Infinity
-     */
-    cacheTime?: number;
+    baseCacheOptions?: CacheOptions;
     /**
      * Clear interval in milliseconds. Defaults to 5 minutes.
      *
@@ -44,6 +56,11 @@ export interface DynCacheConfig {
      * Callback when an entry is set.
      */
     onSet?: (entry: DynCacheEntry<any, any>) => void;
+    /**
+     * Max cache size in bytes.
+     * @default Infinity
+     */
+    maxSize?: number;
 }
 
 export type EntryFinder<K, V> =
@@ -61,7 +78,7 @@ export type EntryFinder<K, V> =
           everyTag?: string[];
       };
 
-export type DynCacheEntry<K, V> = {
+export interface DynCacheEntry<K, V> {
     /**
      * The key of the entry.
      */
@@ -79,31 +96,17 @@ export type DynCacheEntry<K, V> = {
      */
     expiresAt: number;
     /**
-     * Milliseconds to keep the entry in the cache.
+     * Size in bytes
      */
-    cacheTime: number;
+    size: number;
     /**
      * Global refresh flag.
      */
     refresh: boolean;
-};
+    ttl: number;
+}
 
-export type SetOptions = {
-    /**
-     * Tags to add to the entry.
-     */
-    tags?: string[];
-    /**
-     * Milliseconds to keep the entry in the cache. Set to 0 to disable.
-     *
-     * This option takes precedence over {@link DynCacheConfig.cacheTime}.
-     */
-    cacheTime?: number;
-    /**
-     * If true, the entry cache time will be refreshed on the next get.
-     */
-    refresh?: boolean;
-};
+export interface SetOptions extends CacheOptions {}
 
 export type GetOptions = {
     /**

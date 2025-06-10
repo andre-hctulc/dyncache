@@ -4,10 +4,12 @@ Dynamic Cache.
 
 ## Features
 
--   Complex keys
+-   Complex keys (strings, numbers, objects, arrays, ...)
 -   Find/Remove entries by tags, keys or custom finders
 -   Support for custom engines
 -   _onSet_ and _onRemove_ listeners
+-   Max memory size
+-   TTL
 
 ## Basic Usage
 
@@ -38,14 +40,20 @@ cache.deactivate();
 
 The cache engine to use. Defaults to a **memory engine**.
 
-`cacheTime`
-
-By default entries are **cached infinitely**.
-Disable the cache by settings the cache time to 0 or Infinity.
-A cache can set the cache time for its items. It can be overwritten for single items on set.
-
 `clearInterval`
 
 Defaults to **5 minutes**.
 The entries are checked for expiration in an interval.
 Disable the clear interval by setting this to 0 or Infinity. Then the entries will be checked and removed on retrieval.
+
+`maxSize`
+
+Max size in bytes.
+
+## Cache Options
+
+`ttl`
+
+Time to live in milliseconds.
+By default entries are **cached infinitely**.
+Disable the cache by settings the cache time to 0 or Infinity.

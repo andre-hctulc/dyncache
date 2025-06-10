@@ -1,0 +1,2 @@
+-   ttl
+-   max size (in bytes)

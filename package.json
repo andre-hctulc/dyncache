@@ -1,10 +1,11 @@
 {
-    "name": "@andre-hctulc/dyncache",
-    "version": "0.0.6",
+    "name": "@dre44/dyncache",
+    "version": "0.1.0",
     "description": "Dynamic Cache",
     "main": "dist/index.js",
     "type": "module",
     "scripts": {
+        "prebuild": "rm -rf dist",
         "build": "tsc",
         "tc": "tsc --noEmit",
         "tc:watch": "tsc --noEmit --watch"
@@ -13,6 +14,7 @@
     "author": "André Thomas",
     "license": "ISC",
     "dependencies": {
+        "object-sizeof": "^2.6.5",
         "stable-hash": "^0.0.4"
     }
 }
