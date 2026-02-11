@@ -120,11 +120,17 @@ export class DynCache<BK = any, BV = any> {
         };
 
         entry.size = sizeOf(entry);
-
         if (entry.size > this.#maxEntrySize) {
             throw new Error(
                 `Entry size (${entry.size} bytes) exceeds max entry size (${this.#maxEntrySize} bytes)`,
             );
+        }
+
+        // properly remove old entry:
+        // - call remove event
+        // - update size and length
+        if (this.#engine.getValue(k)) {
+            this.remove(key);
         }
 
         const newSize = this.#size + entry.size;
@@ -133,7 +139,6 @@ export class DynCache<BK = any, BV = any> {
         this.#trim(newSize, newLength);
 
         this.#engine.setValue(k, entry);
-
         this.#size = newSize;
         this.#length = newLength;
 
