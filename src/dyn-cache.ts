@@ -6,7 +6,7 @@ import type {
     SetOptions,
     EntryFinder,
     GetOptions,
-    CacheOptions,
+    EntryCacheOptions,
 } from "./types.js";
 import hash from "stable-hash";
 import sizeOf from "object-sizeof";
@@ -20,27 +20,62 @@ export class DynCache<BK = any, BV = any> {
     #engine: DynCacheEngine;
     #clearInterval: any;
     #size: number = 0;
+    #length = 0;
     #maxSize: number;
-    #baseCacheOptions: CacheOptions;
+    #maxEntrySize: number;
+    #maxEntries: number;
+    #entryCacheOptions: Omit<EntryCacheOptions, "tags">;
+    #clearAbortController = new AbortController();
 
     constructor(config: DynCacheConfig = {}) {
         this.#config = config;
         this.#engine = config.engine || new MemoryEngine();
-        this.#startClearInterval();
+
         this.#maxSize = config.maxSize || Infinity;
+        this.#maxEntries = config.maxEntries || Infinity;
+        this.#maxEntrySize = config.maxEntrySize || Infinity;
         if (this.#maxSize < 0) {
             throw new Error("Max memory size must be a positive number or Infinity");
         }
-        this.#baseCacheOptions = config.baseCacheOptions || {};
+        if (this.#maxEntries < 0) {
+            throw new Error("Max entries must be a positive number or Infinity");
+        }
+        if (this.#maxEntrySize < 0) {
+            throw new Error("Max entry size must be a positive number or Infinity");
+        }
+
+        this.#entryCacheOptions = {
+            ttl: config.ttl ?? Infinity,
+            refresh: config.refresh ?? false,
+        };
+
+        this.#startClearInterval();
     }
 
     #startClearInterval() {
-        if (this.#config.clearInterval === 0 || this.#config.clearInterval === Infinity) return;
+        if (this.#config.clearIntervalLength === 0 || this.#config.clearIntervalLength === Infinity) {
+            return;
+        }
 
-        this.#clearInterval = setInterval(() => {
+        const clear = () => {
             const now = Date.now();
             this.all().forEach((entry) => this.#checkExpired(now, entry));
-        }, this.#config.clearInterval || 300000);
+        };
+        const intervalLength = this.#config.clearIntervalLength || 300000;
+
+        if (this.#config.startClearInterval) {
+            this.#config.startClearInterval(intervalLength, clear, this.#clearAbortController.signal);
+        } else {
+            this.#clearInterval = setInterval(clear, intervalLength);
+        }
+
+        // Set up abort listener for cleanup
+        this.#clearAbortController.signal.addEventListener("abort", () => {
+            if (this.#clearInterval) {
+                clearInterval(this.#clearInterval);
+                this.#clearInterval = null;
+            }
+        });
     }
 
     #checkExpired(now: number, entry: DynCacheEntry<any, any>): boolean {
@@ -63,7 +98,7 @@ export class DynCache<BK = any, BV = any> {
                 if (!entry || this.#checkExpired(now, entry)) return false;
                 return entry;
             })
-            .filter((e) => !!e);
+            .filter(Boolean) as DynCacheEntry<BK, BV>[];
     }
 
     /**
@@ -72,50 +107,71 @@ export class DynCache<BK = any, BV = any> {
      */
     set<K extends BK, V extends BV>(key: K, value: V, options?: SetOptions): DynCacheEntry<K, V> {
         const k = hash(key);
-        const cacheTime = options?.ttl ?? this.#baseCacheOptions.ttl ?? Infinity;
+        const cacheTime = options?.ttl ?? this.#entryCacheOptions.ttl ?? Infinity;
 
         const entry: DynCacheEntry<K, V> = {
             key,
             value,
-            tags: options?.tags || this.#baseCacheOptions.tags || [],
+            tags: options?.tags || [],
             expiresAt: cacheTime === 0 || cacheTime === Infinity ? Infinity : Date.now() + cacheTime,
             ttl: cacheTime,
-            refresh: options?.refresh ?? !!this.#baseCacheOptions.refresh,
+            refresh: options?.refresh ?? !!this.#entryCacheOptions.refresh,
             size: 0,
         };
 
-        const _size = sizeOf(entry);
-        entry.size = _size + sizeOf(_size);
+        entry.size = sizeOf(entry);
 
-        if (entry.size > this.#maxSize) {
-            throw new Error(`Entry size (${_size} bytes) exceeds max cache size (${this.#maxSize} bytes)`);
+        if (entry.size > this.#maxEntrySize) {
+            throw new Error(
+                `Entry size (${entry.size} bytes) exceeds max entry size (${this.#maxEntrySize} bytes)`,
+            );
         }
 
-        if (this.#size + entry.size > this.#maxSize) {
-            this.#trim();
-        }
+        const newSize = this.#size + entry.size;
+        const newLength = this.#length + 1;
+
+        this.#trim(newSize, newLength);
 
         this.#engine.setValue(k, entry);
-        this.#size += entry.size;
+
+        this.#size = newSize;
+        this.#length = newLength;
 
         this.#config.onSet?.(entry);
 
         return entry;
     }
 
-    #trim() {
-        if (this.#maxSize === Infinity) {
+    #trim(newSize: number, newLength: number) {
+        if (this.#maxSize === Infinity && this.#maxEntries === Infinity) {
             return;
         }
 
-        const allEntries = this.all();
+        const sizeTrimRequired = newSize > this.#maxSize;
+        const lengthTrimRequired = newLength > this.#maxEntries;
 
-        allEntries.sort((a, b) => a.expiresAt - b.expiresAt);
+        if (!sizeTrimRequired && !lengthTrimRequired) {
+            return;
+        }
 
-        while (this.#size > this.#maxSize && allEntries.length > 0) {
-            const oldestEntry = allEntries.shift();
-            if (oldestEntry) {
-                this.remove(oldestEntry.key);
+        const sortedEntries = this.all().sort((a, b) => a.expiresAt - b.expiresAt);
+
+        if (sizeTrimRequired) {
+            while (newSize > this.#maxSize && sortedEntries.length > 0) {
+                const oldestEntry = sortedEntries.shift();
+                if (oldestEntry) {
+                    this.remove(oldestEntry.key);
+                    newSize -= oldestEntry.size;
+                }
+            }
+        }
+        if (lengthTrimRequired) {
+            while (newLength > this.#maxEntries && sortedEntries.length > 0) {
+                const oldestEntry = sortedEntries.shift();
+                if (oldestEntry) {
+                    this.remove(oldestEntry.key);
+                    newLength--;
+                }
             }
         }
     }
@@ -136,7 +192,7 @@ export class DynCache<BK = any, BV = any> {
         key: K,
         value: () => V,
         getOptions?: GetOptions,
-        setOptions?: SetOptions
+        setOptions?: SetOptions,
     ): V {
         const entry = this.getEntry<K, V>(key, getOptions);
 
@@ -165,7 +221,7 @@ export class DynCache<BK = any, BV = any> {
         // refresh?
         if (
             entry.expiresAt !== Infinity &&
-            (options?.refresh ?? entry?.refresh ?? this.#baseCacheOptions.refresh)
+            (options?.refresh ?? entry?.refresh ?? this.#entryCacheOptions.refresh)
         ) {
             entry.expiresAt = now + entry.ttl;
         }
@@ -180,6 +236,7 @@ export class DynCache<BK = any, BV = any> {
     clear(): void {
         this.#engine.allKeys().forEach((key) => this.#engine.remove(key));
         this.#size = 0;
+        this.#length = 0;
     }
 
     /**
@@ -193,6 +250,7 @@ export class DynCache<BK = any, BV = any> {
 
         this.#engine.remove(k);
         this.#size -= entry.size;
+        this.#length--;
 
         this.#config.onRemove?.(entry);
 
@@ -202,8 +260,8 @@ export class DynCache<BK = any, BV = any> {
     /**
      * @returns If the key is in the cache
      */
-    has<K = any>(key: K): boolean {
-        return !!this.#engine.getValue(hash(key));
+    has<K extends BK = BK>(key: K): boolean {
+        return !!this.getEntry(key);
     }
 
     /**
@@ -241,17 +299,14 @@ export class DynCache<BK = any, BV = any> {
      * Removes entries by a finder function or object
      */
     removeByFinder(finder: EntryFinder<BK, BV>): void {
-        const entries = this.find(finder);
-        entries.forEach((entry) => this.remove(entry.key));
+        this.find(finder).forEach((entry) => this.remove(entry.key));
     }
 
     /**
      * Deactivates the clearing interval. The cache can still be used, but with `clearInterval: 0` behavior.
      */
     deactivate(): void {
-        if (this.#clearInterval) {
-            clearInterval(this.#clearInterval);
-        }
+        this.#clearAbortController.abort();
     }
 
     /**
@@ -264,5 +319,9 @@ export class DynCache<BK = any, BV = any> {
 
     getSize(): number {
         return this.#size;
+    }
+
+    getLength(): number {
+        return this.#length;
     }
 }

@@ -17,7 +17,7 @@ export interface DynCacheEngine {
     remove(key: string): void;
 }
 
-export interface CacheOptions {
+export interface EntryCacheOptions {
     /**
      * Milliseconds to keep item in cache. Set to 0 to disable.
      * @default 0
@@ -33,16 +33,12 @@ export interface CacheOptions {
     tags?: string[];
 }
 
-export interface DynCacheConfig {
+export interface DynCacheConfig<K = any, V = any> extends Omit<EntryCacheOptions, "tags"> {
     /**
      * The cache engine to use.
      * @default MemoryEngine
      */
     engine?: DynCacheEngine;
-    /**
-     * Base cache options. Can be overridden per entry.
-     */
-    baseCacheOptions?: CacheOptions;
     /**
      * Clear interval in milliseconds. Defaults to 5 minutes.
      *
@@ -50,24 +46,38 @@ export interface DynCacheConfig {
      * When disabled, the entries will be removed on retrieval if they are expired.
      * @default 300000
      */
-    clearInterval?: number;
+    clearIntervalLength?: number;
+    /**
+     * Custom clear interval function. Defaults to using setInterval.
+     */
+    startClearInterval?: (clearIntervalLength: number, clear: () => void, abortSignal: AbortSignal) => void;
     /**
      * Callback when an entry is removed.
      */
-    onRemove?: (entry: DynCacheEntry<any, any>) => void;
+    onRemove?: (entry: DynCacheEntry<K, V>) => void;
     /**
      * Callback when an entry is set.
      */
-    onSet?: (entry: DynCacheEntry<any, any>) => void;
+    onSet?: (entry: DynCacheEntry<K, V>) => void;
     /**
      * Max cache size in bytes.
      * @default Infinity
      */
     maxSize?: number;
+    /**
+     * Max number of entries in the cache. Set to Infinity to disable.
+     * @default Infinity
+     */
+    maxEntries?: number;
+    /**
+     * Max size of a single entry in bytes. Set to Infinity to disable.
+     * @default Infinity
+     */
+    maxEntrySize?: number;
 }
 
 export type EntryFinder<K, V> =
-    | ((key: DynCacheEntry<K, V>) => boolean)
+    | ((entry: DynCacheEntry<K, V>) => boolean)
     | {
           /** List of keys to allow */
           keys?: string[];
@@ -83,7 +93,7 @@ export type EntryFinder<K, V> =
 
 export interface DynCacheEntry<K, V> {
     /**
-     * The key of the entry.
+     * Original entry key.
      */
     key: K;
     /**
@@ -109,7 +119,7 @@ export interface DynCacheEntry<K, V> {
     ttl: number;
 }
 
-export interface SetOptions extends CacheOptions {}
+export interface SetOptions extends EntryCacheOptions {}
 
 export type GetOptions = {
     /**
