@@ -27,7 +27,7 @@ export class DynCache<BK = any, BV = any> {
     #entryCacheOptions: Omit<EntryCacheOptions, "tags">;
     #clearAbortController = new AbortController();
 
-    constructor(config: DynCacheConfig = {}) {
+    constructor(config: DynCacheConfig<BK, BV> = {}) {
         this.#config = config;
         this.#engine = config.engine || new MemoryEngine();
 
