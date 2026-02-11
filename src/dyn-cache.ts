@@ -129,8 +129,12 @@ export class DynCache<BK = any, BV = any> {
         // properly remove old entry:
         // - call remove event
         // - update size and length
-        if (this.#engine.getValue(k)) {
-            this.remove(key);
+        const existingEntry = this.#engine.getValue(k);
+        if (existingEntry) {
+            this.#engine.remove(k);
+            this.#size -= existingEntry.size;
+            this.#length--;
+            this.#config.onRemove?.(existingEntry);
         }
 
         const newSize = this.#size + entry.size;
@@ -239,7 +243,13 @@ export class DynCache<BK = any, BV = any> {
      * @param silent If true, does not call the onRemove callback
      */
     clear(): void {
-        this.#engine.allKeys().forEach((key) => this.#engine.remove(key));
+        this.#engine.allKeys().forEach((key) => {
+            const entry = this.#engine.getValue(key);
+            this.#engine.remove(key);
+            if (entry) {
+                this.#config.onRemove?.(entry);
+            }
+        });
         this.#size = 0;
         this.#length = 0;
     }
