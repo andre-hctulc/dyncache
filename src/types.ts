@@ -19,8 +19,8 @@ export interface DynCacheEngine {
 
 export interface EntryCacheOptions {
     /**
-     * Milliseconds to keep item in cache. Set to 0 to disable.
-     * @default 0
+     * Milliseconds to keep item in cache. Set to 0 or Infinity to disable.
+     * @default Infinity
      */
     ttl?: number;
     /**
@@ -65,12 +65,12 @@ export interface DynCacheConfig<K = any, V = any> extends Omit<EntryCacheOptions
      */
     maxSize?: number;
     /**
-     * Max number of entries in the cache. Set to Infinity to disable.
+     * Max number of entries in the cache. Set to 0 or Infinity to disable.
      * @default Infinity
      */
     maxEntries?: number;
     /**
-     * Max size of a single entry in bytes. Set to Infinity to disable.
+     * Max size of a single entry in bytes. Set to 0 or Infinity to disable.
      * @default Infinity
      */
     maxEntrySize?: number;
@@ -121,11 +121,15 @@ export interface DynCacheEntry<K, V> {
 
 export interface SetOptions extends EntryCacheOptions {}
 
-export type GetOptions = {
+export interface GetOptions {
     /**
      * If true, the entry cache time will be refreshed.
      *
      * This option takes precedence over {@link SetOptions.refresh}.
      */
     refresh?: boolean;
-};
+}
+
+export interface PromiseOptions extends SetOptions {
+    overrule?: boolean;
+}
