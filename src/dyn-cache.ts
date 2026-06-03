@@ -258,7 +258,7 @@ export class DynCache<BK = any, BV = any> {
         });
         this.#size = 0;
         this.#length = 0;
-        this.release();
+        this.releaseAll();
     }
 
     /**
@@ -369,7 +369,7 @@ export class DynCache<BK = any, BV = any> {
     /**
      * @returns Did lock apply?
      */
-    lock<K extends BK>(key: K, { overrule }: PromiseOptions = {}): boolean {
+    release<K extends BK>(key: K, { overrule }: PromiseOptions = {}): boolean {
         const k = hash(key);
         const currentLock = this.#locks.get(k);
         if (overrule) {
@@ -391,7 +391,7 @@ export class DynCache<BK = any, BV = any> {
     /**
      * Releases all promises.
      */
-    release(): void {
+    releaseAll(): void {
         for (const [k, lock] of this.#locks.entries()) {
             if (typeof lock === "object") {
                 lock.abortController.abort();
