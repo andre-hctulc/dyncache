@@ -132,4 +132,5 @@ export interface GetOptions {
 
 export interface PromiseOptions extends SetOptions {
     overrule?: boolean;
+    noSet?: boolean;
 }

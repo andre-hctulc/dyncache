@@ -33,7 +33,7 @@ export class DynCache<BK = any, BV = any> {
 
         this.#maxSize = config.maxSize || Infinity;
         this.#maxEntries = config.maxEntries || Infinity;
-        this.#maxEntrySize = config.maxEntrySize || Infinity;
+        this.#maxEntrySize = config.maxEntrySize || config.maxSize || Infinity;
         if (this.#maxSize < 0) {
             throw new Error("Max memory size must be a positive number or Infinity");
         }
@@ -202,7 +202,7 @@ export class DynCache<BK = any, BV = any> {
      */
     getOrSet<K extends BK, V extends BV>(
         key: K,
-        value: () => V,
+        setFn: () => V,
         getOptions?: GetOptions,
         setOptions?: SetOptions,
     ): V {
@@ -212,7 +212,7 @@ export class DynCache<BK = any, BV = any> {
             return entry.value;
         }
 
-        const val = value();
+        const val = setFn();
         this.set(key, val, setOptions);
         return val;
     }
@@ -444,6 +444,10 @@ export class DynCache<BK = any, BV = any> {
 
         prom.then(
             (v) => {
+                if (options.noSet) {
+                    return;
+                }
+
                 const currentLock = this.#locks.get(k);
                 if (typeof currentLock === "object" && currentLock.prom === prom) {
                     this.set(key, v, options);
