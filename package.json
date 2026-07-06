@@ -8,7 +8,8 @@
         "prebuild": "rm -rf dist",
         "build": "tsc",
         "tc": "tsc --noEmit",
-        "tc:watch": "tsc --noEmit --watch"
+        "tc:watch": "tsc --noEmit --watch",
+        "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js"
     },
     "keywords": [],
     "author": "André Thomas",
@@ -16,5 +17,10 @@
     "dependencies": {
         "object-sizeof": "^2.6.5",
         "stable-hash": "^0.0.4"
+    },
+    "devDependencies": {
+        "@types/jest": "^29.5.14",
+        "jest": "^29.7.0",
+        "ts-jest": "^29.4.1"
     }
 }

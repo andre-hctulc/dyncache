@@ -15,7 +15,7 @@ export class MemoryEngine implements DynCacheEngine {
         return Object.keys(this._cache);
     }
 
-    remove(key: string): void {
+    removeValue(key: string): void {
         delete this._cache[key];
     }
 }

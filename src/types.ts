@@ -1,20 +1,22 @@
+export type MaybePromise<T> = T | Promise<T>;
+
 export interface DynCacheEngine {
     /**
      * Sets the value for the key.
      */
-    setValue(key: string, value: any): void;
+    setValue(key: string, value: any): MaybePromise<void>;
     /**
      * @returns The value or undefined if the key is not found.
      */
-    getValue(key: string): any;
+    getValue(key: string): MaybePromise<any>;
     /**
      * @returns All keys in the cache.
      */
-    allKeys(): string[];
+    allKeys(): MaybePromise<string[]>;
     /**
      * Removes the key from the cache.
      */
-    remove(key: string): void;
+    removeValue(key: string): MaybePromise<void>;
 }
 
 export interface EntryCacheOptions {
@@ -33,7 +35,8 @@ export interface EntryCacheOptions {
     tags?: string[];
 }
 
-export interface DynCacheConfig<K = any, V = any> extends Omit<EntryCacheOptions, "tags"> {
+export interface DynCacheConfig<K = any, V = any> {
+    entryOptions?: EntryCacheOptions;
     /**
      * The cache engine to use.
      * @default MemoryEngine
@@ -50,7 +53,11 @@ export interface DynCacheConfig<K = any, V = any> extends Omit<EntryCacheOptions
     /**
      * Custom clear interval function. Defaults to using setInterval.
      */
-    startClearInterval?: (clearIntervalLength: number, clear: () => void, abortSignal: AbortSignal) => void;
+    startClearInterval?: (
+        clearIntervalLength: number,
+        clear: () => MaybePromise<void>,
+        abortSignal: AbortSignal,
+    ) => MaybePromise<void>;
     /**
      * Callback when an entry is removed.
      */
@@ -58,7 +65,7 @@ export interface DynCacheConfig<K = any, V = any> extends Omit<EntryCacheOptions
     /**
      * Callback when an entry is set.
      */
-    onSet?: (entry: DynCacheEntry<K, V>) => void;
+    onSet?: (entry: DynCacheEntry<K, V>, previousEntry?: DynCacheEntry<K, V>) => void;
     /**
      * Max cache size in bytes.
      * @default Infinity
@@ -117,6 +124,7 @@ export interface DynCacheEntry<K, V> {
      */
     refresh: boolean;
     ttl: number;
+    id: string;
 }
 
 export interface SetOptions extends EntryCacheOptions {}
