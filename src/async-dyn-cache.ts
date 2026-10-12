@@ -91,10 +91,13 @@ export class AsyncDynCache<BK = any, BV = any> extends BaseDynCache<BK, BV> {
         this.#setVersionByKey.set(k, setVersion);
         this.#activeGetEntries.delete(k);
 
-        const entry = createEntry(key, value, this.#maxEntrySize, {
-            ...this.#config.entryOptions,
-            ...options,
-        });
+        const entry = createEntry(
+            key,
+            value,
+            this.#maxEntrySize,
+            this.#config.entryOptions || {},
+            options || {},
+        );
 
         const previousSet = this.#pendingSetByKey.get(k)?.catch(() => undefined) ?? Promise.resolve();
         let currentSet: Promise<void>;

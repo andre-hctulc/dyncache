@@ -79,12 +79,24 @@ export function isExpired(now: number, entry: DynCacheEntry<any, any>): boolean 
     return entry.expiresAt !== Infinity && entry.expiresAt < now;
 }
 
+function mergeOptions(base: SetOptions, override?: SetOptions): SetOptions {
+    const opts: SetOptions = { ...base };
+    for (const [key, value] of Object.entries(override || {})) {
+        if (value !== undefined) {
+            opts[key as keyof SetOptions] = value;
+        }
+    }
+
+    return opts;
+}
 export function createEntry<K, V>(
     key: K,
     value: V,
     maxEntrySize: number,
-    options?: SetOptions,
+    baseOptions: SetOptions,
+    entryOptions: SetOptions,
 ): DynCacheEntry<K, V> {
+    const options = mergeOptions(baseOptions, entryOptions);
     const ttl = options?.ttl ?? Infinity;
 
     const entry: DynCacheEntry<K, V> = {

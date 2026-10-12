@@ -52,6 +52,7 @@ export abstract class BaseDynCache<BK = any, BV = any> {
             this.#clearIntervalRef = setInterval(() => {
                 clear();
             }, intervalLength);
+            this.#clearIntervalRef.unref?.();
         }
 
         this.#clearAbortController.signal.addEventListener("abort", () => {

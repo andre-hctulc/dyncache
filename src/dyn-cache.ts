@@ -85,10 +85,13 @@ export class DynCache<BK = any, BV = any> extends BaseDynCache<BK, BV> {
      */
     set<K extends BK, V extends BV>(key: K, value: V, options?: SetOptions): DynCacheEntry<K, V> {
         const k = hash(key);
-        const entry = createEntry(key, value, this.#maxEntrySize, {
-            ...this.#config.entryOptions,
-            ...options,
-        });
+        const entry = createEntry(
+            key,
+            value,
+            this.#maxEntrySize,
+            this.#config.entryOptions || {},
+            options || {},
+        );
 
         const existingEntry = this.#engine.getValue(k) as DynCacheEntry<K, V> | undefined;
         if (existingEntry) {

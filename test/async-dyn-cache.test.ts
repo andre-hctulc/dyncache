@@ -1,6 +1,7 @@
 import { AsyncDynCache } from "../src/async-dyn-cache.js";
 import { createEntry, hash } from "../src/system.js";
 import type { DynCacheEngine } from "../src/types.js";
+import { describe, it, expect } from "@jest/globals";
 
 function deferred<T>() {
     let resolve!: (value: T | PromiseLike<T>) => void;
@@ -52,7 +53,7 @@ describe("AsyncDynCache concurrency", () => {
         const engine = new ControlledAsyncEngine();
         const cache = new AsyncDynCache({ engine });
         const key = "project";
-        const entry = createEntry(key, { id: 1 }, Number.POSITIVE_INFINITY, {});
+        const entry = createEntry(key, { id: 1 }, Number.POSITIVE_INFINITY, {}, {});
 
         engine.store.set(hash(key), entry);
 
