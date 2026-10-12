@@ -1,6 +1,6 @@
 {
     "name": "@dre44/dyncache",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "packageManager": "pnpm@12.8.1",
     "description": "Dynamic Cache",
     "main": "dist/index.js",
