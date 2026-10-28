@@ -1,22 +1,22 @@
 export type MaybePromise<T> = T | Promise<T>;
 
-export interface DynCacheEngine {
+export interface DynCacheEngine<K = any, V = any> {
     /**
      * Sets the value for the key.
      */
-    setValue(key: string, value: any): MaybePromise<void>;
+    setValue(key: string, value: DynCacheEntry<K, V>): void;
     /**
      * @returns The value or undefined if the key is not found.
      */
-    getValue(key: string): MaybePromise<any>;
+    getValue(key: string): DynCacheEntry<K, V> | undefined;
     /**
      * @returns All keys in the cache.
      */
-    allKeys(): MaybePromise<string[]>;
+    allKeys(): string[];
     /**
      * Removes the key from the cache.
      */
-    removeValue(key: string): MaybePromise<void>;
+    removeValue(key: string): void;
 }
 
 export interface EntryCacheOptions {
@@ -38,10 +38,10 @@ export interface EntryCacheOptions {
 export interface DynCacheConfig<K = any, V = any> {
     entryOptions?: EntryCacheOptions;
     /**
-     * The cache engine to use.
+     * The synchronous cache engine to use. Promise-returning engines are not supported.
      * @default MemoryEngine
      */
-    engine?: DynCacheEngine;
+    engine?: DynCacheEngine<K, V>;
     /**
      * Clear interval in milliseconds. Defaults to 5 minutes.
      *
