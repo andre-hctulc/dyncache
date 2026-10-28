@@ -250,11 +250,3 @@ All engine methods must be synchronous. Asynchronous loading belongs in a
 The built-in timer is unreferenced where supported, so it does not keep a Node.js
 process alive. Custom scheduler startup errors, scheduled cleanup errors, and
 errors while clearing during deactivation are logged to `console.error`.
-
-## Migrating from earlier versions
-
-`DynCache` is now the only cache class. `AsyncDynCache` and `BaseDynCache` have
-been removed. Use `DynCache` with a synchronous engine, and use `lock` for
-deduplicated asynchronous loading.
-
-See [additional behavior and migration notes](docs/dyn-cache.md).
