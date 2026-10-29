@@ -1,4 +1,4 @@
-export type MaybePromise<T> = T | Promise<T>;
+export type MaybePromise<T> = Awaited<T> | Promise<T>;
 
 export interface DynCacheEngine<K = any, V = any> {
     /**
@@ -120,7 +120,7 @@ export interface DynCacheEntry<K, V> {
      */
     size: number;
     /**
-     * Global refresh flag.
+     * Refresh flag indicating if the entry's TTL should be refreshed.
      */
     refresh: boolean;
     ttl: number;
@@ -138,7 +138,11 @@ export interface GetOptions {
     refresh?: boolean;
 }
 
-export interface PromiseOptions extends SetOptions {
-    overrule?: boolean;
-    noSet?: boolean;
+export interface LockOptions extends GetOptions, SetOptions {
+    /**
+     * If true, skips reading the current cached value before invoking the lock function.
+     */
+    noRead?: boolean;
 }
+
+export type LockFn<V> = () => MaybePromise<V>;

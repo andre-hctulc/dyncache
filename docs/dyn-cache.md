@@ -36,6 +36,11 @@ factory runs. Different keys can load independently. Synchronous factories
 are also supported. Results use the normal `set` path, including configured
 TTL, limits, and callbacks.
 
+Pass `{ noRead: true }` as the third argument to skip the cached value and reload.
+An active retrieval still takes precedence and is shared, regardless of `noRead`.
+The existing entry remains available to synchronous readers while the reload runs;
+if the factory fails, it is not replaced.
+
 `lockGet(key)` waits for active retrievals and then returns the current cache
 value, or `undefined` if absent. It never starts a retrieval. Plain `get` and
 `has` remain synchronous and do not wait for locks.

@@ -66,6 +66,9 @@ const [first, second] = await Promise.all([
 ]); // One request; both callers receive the result.
 
 const current = await settings.lockGet("settings");
+
+// Reload even if cached; still share any active load.
+const refreshed = await settings.lock("settings", loadSettings, { noRead: true });
 ```
 
 - `lockGet` waits for active loads, then reads the cache. It never starts a load.

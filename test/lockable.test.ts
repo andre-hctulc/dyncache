@@ -1,6 +1,5 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { DynCache } from "../src/index.js";
-import type { Lockable } from "../src/index.js";
 import { MaxEntrySizeExceededError } from "../src/errors.js";
 
 function deferred<T>() {
@@ -14,16 +13,62 @@ function deferred<T>() {
 }
 
 describe("DynCache locks", () => {
-    it("implements Lockable and returns cached falsy values without invoking factories", async () => {
+    it("supports forced reloads", async () => {
+        const cache = new DynCache<string, string>({ clearIntervalLength: 0 });
+        const gate = deferred<string>();
+        const entry = cache.set("key", "cached", { ttl: 5000, refresh: true });
+        const expiresAt = entry.expiresAt;
+        const getEntry = jest.spyOn(cache, "getEntry");
+        const factory = jest.fn(() => gate.promise);
+        const pending = cache.lock("key", factory, { noRead: true });
+
+        expect(getEntry).not.toHaveBeenCalled();
+        expect(entry.expiresAt).toBe(expiresAt);
+        expect(cache.get("key", { refresh: false })).toBe("cached");
+        const reader = cache.lockGet("key");
+        gate.resolve("fresh");
+
+        await expect(pending).resolves.toBe("fresh");
+        await expect(reader).resolves.toBe("fresh");
+        expect(factory).toHaveBeenCalledTimes(1);
+        expect(cache.get("key")).toBe("fresh");
+        expect(cache.getLength()).toBe(1);
+    });
+
+    it("shares an active reload with normal and forced callers", async () => {
+        const cache = new DynCache<string, string>({ clearIntervalLength: 0 });
+        const gate = deferred<string>();
+        cache.set("key", "cached");
+        const pending = cache.lock("key", () => gate.promise, { noRead: true });
+        const ignored = jest.fn(() => "wrong");
+
+        expect(cache.lock("key", ignored)).toBe(pending);
+        expect(cache.lock("key", ignored, { noRead: true })).toBe(pending);
+        gate.resolve("fresh");
+        await pending;
+        expect(ignored).not.toHaveBeenCalled();
+    });
+
+    it("retains the cached value after a failed forced reload and allows retry", async () => {
+        const cache = new DynCache<string, string>({ clearIntervalLength: 0 });
+        cache.set("key", "cached");
+        const failure = new Error("reload failed");
+
+        await expect(cache.lock("key", () => Promise.reject(failure), { noRead: true })).rejects.toBe(failure);
+        expect(cache.get("key")).toBe("cached");
+        await expect(cache.lock("key", () => "fresh", { noRead: true })).resolves.toBe("fresh");
+        expect(cache.get("key")).toBe("fresh");
+    });
+
+    it("returns cached falsy values without invoking factories", async () => {
         const cache = new DynCache<string, number | undefined>({ clearIntervalLength: 0 });
-        const lockable: Lockable<string, number | undefined> = cache;
         const factory = jest.fn(() => 42);
         cache.set("zero", 0);
         cache.set("undefined", undefined);
-        await expect(lockable.lock("zero", factory)).resolves.toBe(0);
-        await expect(lockable.lock("undefined", factory)).resolves.toBeUndefined();
-        await expect(lockable.lockGet("zero")).resolves.toBe(0);
-        await expect(lockable.lockGet("missing")).resolves.toBeUndefined();
+        await expect(cache.lock("zero", factory)).resolves.toBe(0);
+        await expect(cache.lock("undefined", factory)).resolves.toBeUndefined();
+        await expect(cache.lockGet("zero")).resolves.toBe(0);
+        await expect(cache.lockGet("missing")).resolves.toBeUndefined();
         expect(factory).not.toHaveBeenCalled();
     });
 

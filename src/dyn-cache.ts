@@ -1,6 +1,5 @@
 import { InvalidDynCacheOptionsError, PromiseNotAllowedError } from "./errors.js";
 import { MemoryEngine } from "./memory-engine.js";
-import type { Lockable, LockFn } from "./lockable.js";
 import {
     createEntry,
     createFinderPredicate,
@@ -18,13 +17,15 @@ import type {
     SetOptions,
     DynCacheEngine,
     DynCacheConfig,
+    LockOptions,
+    LockFn,
 } from "./types.js";
 
 /**
  * @template BK The base key type
  * @template BV The base value type
  */
-export class DynCache<BK = any, BV = any> implements Lockable<BK, BV> {
+export class DynCache<BK = any, BV = any> {
     #engine: DynCacheEngine<BK, BV>;
 
     #config: DynCacheConfig<BK, BV>;
@@ -86,8 +87,12 @@ export class DynCache<BK = any, BV = any> implements Lockable<BK, BV> {
         } else {
             this.#clearIntervalRef = setInterval(clear, intervalLength);
             const interval: unknown = this.#clearIntervalRef;
-            if (typeof interval === "object" && interval !== null && "unref" in interval &&
-                typeof interval.unref === "function") {
+            if (
+                typeof interval === "object" &&
+                interval !== null &&
+                "unref" in interval &&
+                typeof interval.unref === "function"
+            ) {
                 interval.unref();
             }
         }
@@ -214,20 +219,22 @@ export class DynCache<BK = any, BV = any> implements Lockable<BK, BV> {
     /**
      * Returns a cached value or shares one asynchronous retrieval per key.
      */
-    lock(key: BK, fn: LockFn<BV>): Promise<Awaited<BV>> {
+    lock(key: BK, fn: LockFn<BV>, options?: LockOptions): Promise<Awaited<BV>> {
         const k = hash(key);
         const active = this.#locks.get(k);
         if (active) {
             return active;
         }
 
-        try {
-            const entry = this.getEntry(key);
-            if (entry) {
-                return Promise.resolve(entry.value);
+        if (!options?.noRead) {
+            try {
+                const entry = this.getEntry(key, options);
+                if (entry) {
+                    return Promise.resolve(entry.value);
+                }
+            } catch (error) {
+                return Promise.reject(error);
             }
-        } catch (error) {
-            return Promise.reject(error);
         }
 
         // Defer invocation until the promise is registered, including for synchronous factories.
@@ -235,7 +242,7 @@ export class DynCache<BK = any, BV = any> implements Lockable<BK, BV> {
             .then(async (): Promise<Awaited<BV>> => await fn())
             .then((value): Awaited<BV> => {
                 if (this.#locks.get(k) === pending) {
-                    this.set(key, value);
+                    this.set(key, value, options);
                 }
                 return value;
             })
